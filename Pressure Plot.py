@@ -3,27 +3,98 @@
 Created on Fri Jun  2 12:47:02 2023
 
 @author: Asus
+
+This script is designed to plot all of the currently existing IG data 
+in the "Pressure Data" folder. 
+As inputs, it takes in CSV files that are copies of the "Untitled" part of the
+TDMS file. Please display the "Time" data in the file in the format
+"mm/dd/yyyy hh:mm:ss.000 AM/PM". 
+This script also takes in .mat pressure files as inputs. 
+If using .mat file for pressure, keep it as it is.
 """
 
 from scipy.io import loadmat
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import datetime as dt
 import pytz
+import glob
 
-annots = loadmat(
-    'Pressure Data\pressure_20230517.mat')
-time = np.transpose(annots['Vacuum_Pressures_time'])
-pressures = np.transpose(annots['AP_TANK_PRESSURE'])
-newData = list(zip(time, pressures))
-dfp = pd.DataFrame(data=newData, columns=['Time', 'Aprime tank convectron'])
+#%% Load pressure data from csv (from tdms)
+
+#initialize file path for csv files
+path = 'Pressure Data\*.csv'
+
+#initialize empty dataframe
+dfp = pd.DataFrame()
+
+#Loop over all csv files in folder and combine data into dataframe
+for fname in glob.glob(path):
+    tempdfp = pd.read_csv(fname)
+    dfp = pd.concat([dfp, tempdfp], ignore_index=True)
+
+#Convert time data into nicer format
 for i in range(len(dfp["Time"])):
-    dfp.iloc[i, 0] = float(dfp.iloc[i,0])
-    dfp.iloc[i, 0] = dt.datetime.utcfromtimestamp(
-        dfp.iloc[i, 0]).replace(tzinfo=dt.timezone.utc)
-    dfp.iloc[i, 0] = dfp.iloc[i, 0].astimezone(
+    dfp.iloc[i, 0] = dt.datetime.strptime(
+        dfp.iloc[i, 0],'%m/%d/20%y  %I:%M:%S.%f %p')
+    
+#Get rid of values when pressure is above ion gauge range
+dfp.loc[dfp['Aprime ion gauge'] > 0.0001, 'Aprime ion gauge'] = np.nan
+#%%% Load pressure data from .mat
+
+#initialize file path for mat files
+path = 'Pressure Data\IGpressure_*.mat'
+
+#initialize empty dataframe
+matdfp = pd.DataFrame()
+
+#Loop over all mat files in folder and combine data into dataframe
+for fname in glob.glob(path):
+    tempmat = loadmat(fname)
+    time = np.transpose(tempmat['IG_Pressures_time'])
+    pressures = np.transpose(tempmat['AP_IG_PRESSURE'])
+    newData = list(zip(time, pressures))
+    tempdfp = pd.DataFrame(data=newData, columns=['Time', 'Aprime ion gauge'])
+    matdfp = pd.concat([matdfp, tempdfp], ignore_index=True)
+
+#Convert time data from epoch time to ISO format 
+for i in range(len(matdfp["Time"])):
+    matdfp.iloc[i, 0] = float(matdfp.iloc[i, 0])
+    matdfp.iloc[i, 1] = float(matdfp.iloc[i, 1])
+    matdfp.iloc[i, 0] = dt.datetime.utcfromtimestamp(
+        matdfp.iloc[i, 0]).replace(tzinfo=dt.timezone.utc)
+    matdfp.iloc[i, 0] = matdfp.iloc[i, 0].astimezone(
         pytz.timezone('Etc/GMT+5'))
-    dfp.iloc[i, 0] = dfp.iloc[i, 0].replace(tzinfo=None)
-#%%
-plt.plot(dfp['Time(s)'], dfp['Aprime tank convectron'])
+    matdfp.iloc[i, 0] = matdfp.iloc[i, 0].replace(tzinfo=None)
+
+#Get rid of values when pressure is above ion gauge range
+matdfp.loc[matdfp['Aprime ion gauge'] > 0.0001, 'Aprime ion gauge'] = np.nan
+#%% Concatenate tdms and mat data
+dfp = pd.concat([dfp, matdfp], ignore_index=True)
+
+#Convert IG data to log10
+for i in range(len(dfp['Aprime ion gauge'])):
+    dfp.iloc[i, 4] = np.log10(dfp.iloc[i, 4])
+
+#%% Plotting
+
+#Close all plots
+plt.close('all')
+
+#Plot
+plt.plot(dfp['Time'], np.log10(dfp['Aprime ion gauge']))
+
+#Set axis labels and legends
+fmt = mdates.DateFormatter('%m/%d/%Y')
+
+plt.gca().xaxis.set_major_formatter(fmt)
+plt.gca().ticklabel_format(style='sci', scilimits=(0,0), axis='y')
+plt.xlabel('Dates')
+plt.ylabel('IG Pressure (log10(Torr))')
+plt.title('Ion gauge pressure by date')
+plt.gcf().autofmt_xdate()
+
+plt.gcf().tight_layout()
+plt.show()
