@@ -21,6 +21,10 @@ import matplotlib.dates as mdates
 import datetime as dt
 import pytz
 import glob
+import os
+
+#File path
+os.chdir('C:/Users/Asus/Desktop/Work/HSX/Glow Data')
 
 #%% Load pressure data from csv (from tdms)
 
@@ -74,7 +78,7 @@ matdfp.loc[matdfp['Aprime ion gauge'] > 0.0001, 'Aprime ion gauge'] = np.nan
 #%% Concatenate tdms and mat data
 dfp = pd.concat([dfp, matdfp], ignore_index=True)
 
-#Convert IG data to log10
+#%%Convert IG data to log10
 for i in range(len(dfp['Aprime ion gauge'])):
     dfp.iloc[i, 4] = np.log10(dfp.iloc[i, 4])
 
@@ -84,7 +88,7 @@ for i in range(len(dfp['Aprime ion gauge'])):
 plt.close('all')
 
 #Plot
-plt.plot(dfp['Time'], np.log10(dfp['Aprime ion gauge']))
+plt.plot(dfp['Time'], dfp['Aprime ion gauge'])
 
 #Set axis labels and legends
 fmt = mdates.DateFormatter('%m/%d/%Y')
