@@ -88,7 +88,7 @@ for i in range(len(dfp['Aprime ion gauge'])):
 plt.close('all')
 
 #Plot
-plt.plot(dfp['Time'], dfp['Aprime ion gauge'])
+plt.scatter(dfp['Time'], dfp['Aprime ion gauge'], marker='.')
 
 #Set axis labels and legends
 fmt = mdates.DateFormatter('%m/%d/%Y')
