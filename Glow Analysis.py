@@ -38,13 +38,13 @@ plt.close('all')
 os.chdir('C:/Users/Asus/Desktop/Work/HSX/Glow Data')
 
 #Input start time from RGA PVT file
-starttime = dt.datetime.fromisoformat('2023-05-31 14:09:19')
+starttime = dt.datetime.fromisoformat('2023-06-08 09:53:00')
 
 #Working gas
-workinggas = "Helium"
+workinggas = "Water"
 
 #%%Import your RGA data from csv file in same directory as program
-datfile = 'RGA Data\Glow_20230531_PVT.csv'
+datfile = 'RGA Data\Bake_20230608_PVT.csv'
 dfRGA = pd.read_csv(datfile)
 for i in range(len(dfRGA["Time(s)"])):
     dfRGA.iloc[i, 0] = starttime+dt.timedelta(
@@ -68,7 +68,7 @@ for i in range(len(dfp["Time"])):
 pdata = dfp["Aprime tank convectron"]
 # istart = 8662
 #%%Import pressure data (mat)
-datfile = 'Pressure Data\pressure_20230531.mat'
+datfile = 'Pressure Data/2023_06_08_Vacuum_Pressures.mat'
 pressures = loadmat(datfile)
 ptime = np.transpose(pressures['Vacuum_Pressures_time'])
 ConvAp = np.transpose(pressures['AP_TANK_PRESSURE'])
@@ -76,7 +76,7 @@ dfp1 = pd.DataFrame(data=list(
     zip(ptime, ConvAp)), columns=['Time', 'Aprime tank convectron'])
 
 #for multiple days
-datfile = 'Pressure Data\pressure_20230601.mat'
+datfile = 'Pressure Data/2023_06_09_Vacuum_Pressures.mat'
 pressures = loadmat(datfile)
 ptime = np.transpose(pressures['Vacuum_Pressures_time'])
 ConvAp = np.transpose(pressures['AP_TANK_PRESSURE'])
@@ -97,15 +97,30 @@ for i in range(len(dfp["Time"])):
     if dfp.iloc[i, 0]==dfRGA.iloc[-1, 0] or dfp.iloc[i, 0]==(
             dfRGA.iloc[-1, 0]+dt.timedelta(seconds=1)):
         iend = i
+istart = 936
+
+#Get rid of values when pressure is above convectron gauge range
+dfp.loc[dfp['Aprime tank convectron'] > 850, 'Aprime tank convectron'] = np.nan
+
 pdata = dfp["Aprime tank convectron"]
 
 #%% Import ion gauge data
-datfile = 'Pressure Data\IGpressure_20230601.mat'
+datfile = 'Pressure Data/2023_06_08_IG_Pressures.mat'
 pressures = loadmat(datfile)
 ptime = np.transpose(pressures['IG_Pressures_time'])
 IGAp = np.transpose(pressures['AP_IG_PRESSURE'])
-dfIG = pd.DataFrame(data=list(
+dfIG1 = pd.DataFrame(data=list(
     zip(ptime, IGAp)), columns=['Time', 'Aprime ion gauge'])
+
+#for multiple days
+datfile = 'Pressure Data/2023_06_09_IG_Pressures.mat'
+pressures = loadmat(datfile)
+ptime = np.transpose(pressures['IG_Pressures_time'])
+IGAp = np.transpose(pressures['AP_IG_PRESSURE'])
+dfIG2 = pd.DataFrame(data=list(
+    zip(ptime, IGAp)), columns=['Time', 'Aprime ion gauge'])
+dfIG = pd.concat([dfIG1, dfIG2], ignore_index=True)
+
 for k in range(len(dfIG["Time"])):
     dfIG.iloc[k, 0] = float(dfIG.iloc[k,0])
     dfIG.iloc[k, 0] = dt.datetime.utcfromtimestamp(
@@ -168,10 +183,10 @@ for (columnName, columnData), cc in zip(dfRGA.items(), color_cycle):
         ax4.plot(dfRGA["Time(s)"], columnData, label=str(columnName),**cc)
 
 #plot pressure data
-ax5.plot(dfp["Time"].iloc[istart:iend], pdata[istart:iend])
+# ax5.plot(dfp["Time"].iloc[istart:iend], pdata[istart:iend])
 
 #plot IG data
-ax6.plot(dfIG["Time"], IGdata)
+ax5.plot(dfIG["Time"], IGdata)
 
 # #Plot current data
 # for (columnName, columnData) in dfc.items():
@@ -202,12 +217,12 @@ ax4.legend(loc='center left', bbox_to_anchor=(1,0.5))
 ax5.xaxis.set_major_formatter(fmt)
 ax5.set_ylabel("Pressure(Torr)")
 ax5.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
-ax5.set_title("Convectron Pressure")
+ax5.set_title("IG Pressure")
 
-ax6.xaxis.set_major_formatter(fmt)
-ax6.set_xlabel("Time(s)")
-ax6.set_ylabel("Pressure(Torr)")
-ax6.set_title("IG Pressure")
+# ax6.xaxis.set_major_formatter(fmt)
+# ax6.set_xlabel("Time(s)")
+# ax6.set_ylabel("Pressure(Torr)")
+# ax6.set_title("IG Pressure")
 
 # ax6.xaxis.set_major_formatter(fmt)
 # ax6.set_xlabel("Time(s)")

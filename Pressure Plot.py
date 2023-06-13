@@ -2,7 +2,7 @@
 """
 Created on Fri Jun  2 12:47:02 2023
 
-@author: Asus
+@author: bputra
 
 This script is designed to plot all of the currently existing IG data 
 in the "Pressure Data" folder. 
@@ -32,24 +32,24 @@ os.chdir('C:/Users/Asus/Desktop/Work/HSX/Glow Data')
 path = 'Pressure Data\*.csv'
 
 #initialize empty dataframe
-dfp = pd.DataFrame()
+dfpcsv = pd.DataFrame()
 
 #Loop over all csv files in folder and combine data into dataframe
 for fname in glob.glob(path):
     tempdfp = pd.read_csv(fname)
-    dfp = pd.concat([dfp, tempdfp], ignore_index=True)
+    dfpcsv = pd.concat([dfpcsv, tempdfp], ignore_index=True)
 
 #Convert time data into nicer format
-for i in range(len(dfp["Time"])):
-    dfp.iloc[i, 0] = dt.datetime.strptime(
-        dfp.iloc[i, 0],'%m/%d/20%y  %I:%M:%S.%f %p')
+for i in range(len(dfpcsv["Time"])):
+    dfpcsv.iloc[i, 0] = dt.datetime.strptime(
+        dfpcsv.iloc[i, 0],'%m/%d/20%y  %I:%M:%S.%f %p')
     
 #Get rid of values when pressure is above ion gauge range
-dfp.loc[dfp['Aprime ion gauge'] > 0.0001, 'Aprime ion gauge'] = np.nan
+dfpcsv.loc[dfpcsv['Aprime ion gauge'] > 0.0001, 'Aprime ion gauge'] = np.nan
 #%%% Load pressure data from .mat
 
 #initialize file path for mat files
-path = 'Pressure Data\IGpressure_*.mat'
+path = 'Pressure Data/*_IG_Pressures.mat'
 
 #initialize empty dataframe
 matdfp = pd.DataFrame()
@@ -61,22 +61,21 @@ for fname in glob.glob(path):
     pressures = np.transpose(tempmat['AP_IG_PRESSURE'])
     newData = list(zip(time, pressures))
     tempdfp = pd.DataFrame(data=newData, columns=['Time', 'Aprime ion gauge'])
+    #Convert time data from epoch time to ISO format
+    for i in range(len(tempdfp['Time'])):
+        tempdfp.iloc[i, 0] = float(tempdfp.iloc[i, 0])
+        tempdfp.iloc[i, 1] = float(tempdfp.iloc[i, 1])
+        tempdfp.iloc[i, 0] = dt.datetime.utcfromtimestamp(
+            tempdfp.iloc[i, 0]).replace(tzinfo=dt.timezone.utc)
+        tempdfp.iloc[i, 0] = tempdfp.iloc[i, 0].astimezone(
+            pytz.timezone('Etc/GMT+5'))
+        tempdfp.iloc[i, 0] = tempdfp.iloc[i, 0].replace(tzinfo=None)
     matdfp = pd.concat([matdfp, tempdfp], ignore_index=True)
-
-#Convert time data from epoch time to ISO format 
-for i in range(len(matdfp["Time"])):
-    matdfp.iloc[i, 0] = float(matdfp.iloc[i, 0])
-    matdfp.iloc[i, 1] = float(matdfp.iloc[i, 1])
-    matdfp.iloc[i, 0] = dt.datetime.utcfromtimestamp(
-        matdfp.iloc[i, 0]).replace(tzinfo=dt.timezone.utc)
-    matdfp.iloc[i, 0] = matdfp.iloc[i, 0].astimezone(
-        pytz.timezone('Etc/GMT+5'))
-    matdfp.iloc[i, 0] = matdfp.iloc[i, 0].replace(tzinfo=None)
 
 #Get rid of values when pressure is above ion gauge range
 matdfp.loc[matdfp['Aprime ion gauge'] > 0.0001, 'Aprime ion gauge'] = np.nan
 #%% Concatenate tdms and mat data
-dfp = pd.concat([dfp, matdfp], ignore_index=True)
+dfp = pd.concat([dfpcsv, matdfp], ignore_index=True)
 
 #%%Convert IG data to log10
 for i in range(len(dfp['Aprime ion gauge'])):
