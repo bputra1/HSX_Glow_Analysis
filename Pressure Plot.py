@@ -93,7 +93,7 @@ plt.scatter(dfp['Time'], dfp['Aprime ion gauge'], marker='.')
 fmt = mdates.DateFormatter('%m/%d/%Y')
 
 plt.gca().xaxis.set_major_formatter(fmt)
-plt.gca().ticklabel_format(style='sci', scilimits=(0,0), axis='y')
+#plt.gca().ticklabel_format(style='sci', scilimits=(0,0), axis='y')
 plt.xlabel('Dates')
 plt.ylabel('IG Pressure (log10(Torr))')
 plt.title('Ion gauge pressure by date')
