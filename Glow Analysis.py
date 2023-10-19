@@ -24,6 +24,7 @@ import datetime as dt
 import pytz
 import os
 from scipy.io import loadmat
+import glob
 
 #Functions:
 def round_seconds(obj: dt.datetime) -> dt.datetime:
@@ -35,23 +36,23 @@ def round_seconds(obj: dt.datetime) -> dt.datetime:
 plt.close('all')
 
 #File path
-os.chdir('C:/Users/Asus/Desktop/Work/HSX/Glow Data')
+os.chdir('C:/Users/bputra1/Documents/Scripts/HSX_Glow_Analysis')
 
 #Input start time from RGA PVT file
-starttime = dt.datetime.fromisoformat('2023-06-28 11:44:46')
+starttime = dt.datetime.fromisoformat('2023-09-29 04:54:15')
 
 #Working gas
 workinggas = "Water"
 
 #%%Import your RGA data from csv file in same directory as program
-datfile = 'RGA Data\Bake_20230705_PVT.csv'
+datfile = 'RGA Data\Bake_20230929_PVT.csv'
 dfRGA = pd.read_csv(datfile)
 for i in range(len(dfRGA["Time(s)"])):
     dfRGA.iloc[i, 0] = starttime+dt.timedelta(
         seconds=dfRGA.iloc[i, 0])
     dfRGA.iloc[i, 0] = round_seconds(dfRGA.iloc[i, 0])
 dfRGA = dfRGA.loc[:, ~dfRGA.columns.str.contains('^Unnamed')]
-dfRGA = dfRGA.loc[19471:]
+#dfRGA = dfRGA.loc[19471:]
 
 #%%Import pressure data (csv from tdms)
 datfile = 'Pressure Data\pressure_20230511.csv'
@@ -182,12 +183,36 @@ for t in range(len(dfc['Time(s)'])):
         dfc.iloc[t, i] = np.abs(dfc.iloc[t, i] - dfc.iloc[t, 6])
 
 #%% Import temperature data
-datfile = 'Temperature Data/2023_07_05_Vessel_Temps.mat'
-temps = loadmat(datfile)
-Ttime = np.transpose(temps['Vessel_Temps_time'])
-meantemp = np.transpose(temps['MEAN_TEMP_C_SCALED'])
-dfT = pd.DataFrame(data=list(
-    zip(Ttime, meantemp)), columns=['Time', 'Temp'])    
+
+#initialize file path for mat files
+path = 'Temperature Data/Bake Temps/*_Vessel_Temps.mat'
+
+#initialize empty dataframe
+dfT = pd.DataFrame()
+
+for fname in glob.glob(path):
+    tempmat = loadmat(fname)
+    print(fname)
+    time = np.transpose(tempmat['Vessel_Temps_time'])
+    temps = np.transpose(tempmat['MEAN_TEMP_C_SCALED'])
+    newData = list(zip(time, temps))
+    tempdfT = pd.DataFrame(data=newData, columns=['Time', 'Mean Temps'])
+    #Convert time data from epoch time to ISO format
+    for i in range(len(tempdfT['Time'])):
+        tempdfT.iloc[i, 0] = float(tempdfT.iloc[i, 0])
+        tempdfT.iloc[i, 1] = float(tempdfT.iloc[i, 1])
+        tempdfT.iloc[i, 0] = dt.datetime.utcfromtimestamp(
+            tempdfT.iloc[i, 0]).replace(tzinfo=dt.timezone.utc)
+        tempdfT.iloc[i, 0] = tempdfT.iloc[i, 0].astimezone(
+            pytz.timezone('Etc/GMT+5'))
+        tempdfT.iloc[i, 0] = tempdfT.iloc[i, 0].replace(tzinfo=None)
+    dfT = pd.concat([dfT, tempdfT], ignore_index=True)
+# datfile = 'Temperature Data/2023_09_05_Vessel_Temps.mat'
+# temps = loadmat(datfile)
+# Ttime = np.transpose(temps['Vessel_Temps_time'])
+# meantemp = np.transpose(temps['MEAN_TEMP_C_SCALED'])
+# dfT = pd.DataFrame(data=list(
+#     zip(Ttime, meantemp)), columns=['Time', 'Temp'])    
 
 # #for multiple days
 # datfile = 'Temperature Data/2023_06_29_Vessel_Temps.mat'
@@ -206,25 +231,25 @@ dfT = pd.DataFrame(data=list(
 
 # dfT = pd.concat([dfT1, dfT2, dfT3], ignore_index=True)
 
-for k in range(len(dfT["Time"])):
-    dfT.iloc[k, 0] = float(dfT.iloc[k,0])
-    dfT.iloc[k, 0] = dt.datetime.utcfromtimestamp(
-        dfT.iloc[k, 0]).replace(tzinfo=dt.timezone.utc)
-    dfT.iloc[k, 0] = dfT.iloc[k, 0].astimezone(
-        pytz.timezone('Etc/GMT+5'))
-    dfT.iloc[k, 0] = dfT.iloc[k, 0].replace(tzinfo=None)
+# for k in range(len(dfT["Time"])):
+#     dfT.iloc[k, 0] = float(dfT.iloc[k,0])
+#     dfT.iloc[k, 0] = dt.datetime.utcfromtimestamp(
+#         dfT.iloc[k, 0]).replace(tzinfo=dt.timezone.utc)
+#     dfT.iloc[k, 0] = dfT.iloc[k, 0].astimezone(
+#         pytz.timezone('Etc/GMT+5'))
+#     dfT.iloc[k, 0] = dfT.iloc[k, 0].replace(tzinfo=None)
     
-Tdata = dfT['Temp']
+Tdata = dfT['Mean Temps']
 #%% Plotting    
 plt.close('all')
 #Generate figure and subplot
-fig = plt.figure(figsize=(10,9))
-ax1 = fig.add_subplot(611)
-ax2 = fig.add_subplot(612, sharex=ax1)
-ax3 = fig.add_subplot(613, sharex=ax1)
-ax4 = fig.add_subplot(614, sharex=ax1)
-ax5 = fig.add_subplot(615, sharex=ax1)
-ax6 = fig.add_subplot(616, sharex=ax1)
+fig = plt.figure(figsize=(6,8))
+ax1 = fig.add_subplot(511)
+ax2 = fig.add_subplot(512, sharex=ax1)
+ax3 = fig.add_subplot(513, sharex=ax1)
+ax4 = fig.add_subplot(514, sharex=ax1)
+ax5 = fig.add_subplot(515, sharex=ax1)
+# ax6 = fig.add_subplot(616, sharex=ax1)
 # ax7 = fig.add_subplot(717, sharex=ax1)
 
 #set the color_cylce to make colors different across subplots
@@ -236,18 +261,18 @@ for (columnName, columnData), cc in zip(dfRGA.items(), color_cycle):
         continue
     if columnName == workinggas:
         ax1.plot(dfRGA["Time(s)"], columnData, label=str(columnName),**cc)
-    elif columnName in {"Hydrogen", "Helium"}:
+    elif columnName in {"Hydrogen"}:
         ax2.plot(dfRGA["Time(s)"], columnData, label=str(columnName),**cc)
     elif columnName in {"Oxygen", "Water", "Nitrogen"}: 
         ax3.plot(dfRGA["Time(s)"], columnData, label=str(columnName),**cc)
-    elif columnName in {"Carbon dioxide", "Carbon", "Carbon Dioxide", "Argon"}:
+    elif columnName in {"Helium","Carbon dioxide", "Carbon", "Carbon Dioxide", "Argon"}:
         ax4.plot(dfRGA["Time(s)"], columnData, label=str(columnName),**cc)
 
 #plot pressure data
 # ax5.plot(dfp["Time"].iloc[istart:iend], pdata[istart:iend])
 
 # #plot IG data
-ax5.plot(dfIG["Time"], IGdata)
+# ax5.plot(dfIG["Time"], IGdata)
 
 #Plot current data
 # for (columnName, columnData) in dfc.items():
@@ -258,7 +283,7 @@ ax5.plot(dfIG["Time"], IGdata)
 # ax7.plot(dfc['Time(s)'], dfc['Average Current'], label='Average Current')
 
 #plot temperature data
-ax6.plot(dfT["Time"], Tdata)
+ax5.plot(dfT["Time"], Tdata, linestyle='None',marker='.',ms=1)
 
 #Set axis labels and legends
 fmt = mdates.DateFormatter('%m/%d %H:%M')
@@ -285,20 +310,20 @@ ax4.legend(loc='center left', bbox_to_anchor=(1,0.5))
 # ax5.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
 # ax5.set_title("Convectron Pressure")
 
-ax5.xaxis.set_major_formatter(fmt)
-ax5.set_ylabel("Pressure(Torr)")
-ax5.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
-ax5.set_title("IG Pressure")
+# ax5.xaxis.set_major_formatter(fmt)
+# ax5.set_ylabel("Pressure(Torr)")
+# ax5.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
+# ax5.set_title("IG Pressure")
 
 # ax6.xaxis.set_major_formatter(fmt)
 # ax6.set_xlabel("Time(s)")
 # ax6.set_ylabel("Pressure(Torr)")
 # ax6.set_title("IG Pressure")
 
-ax6.xaxis.set_major_formatter(fmt)
-ax6.set_xlabel("Time(s)")
-ax6.set_ylabel("Temperature (degC)")
-ax6.set_title("Mean Vessel Temperature")
+ax5.xaxis.set_major_formatter(fmt)
+ax5.set_xlabel("Time(s)")
+ax5.set_ylabel("Temperature ($^{\circ}$C)")
+ax5.set_title("Mean Vessel Temperature")
 
 # ax6.xaxis.set_major_formatter(fmt)
 # ax6.set_ylabel("Current(A)")

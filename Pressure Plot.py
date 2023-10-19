@@ -24,7 +24,7 @@ import glob
 import os
 
 #File path
-os.chdir('C:/Users/Asus/Desktop/Work/HSX/Glow Data')
+os.chdir('C:/Users/bputra1/Documents/Scripts/HSX_Glow_Analysis')
 
 #%% Load pressure data from csv (from tdms)
 
@@ -56,9 +56,11 @@ matdfp = pd.DataFrame()
 
 #Loop over all mat files in folder and combine data into dataframe
 for fname in glob.glob(path):
+    print(fname)
     tempmat = loadmat(fname)
     time = np.transpose(tempmat['IG_Pressures_time'])
     pressures = np.transpose(tempmat['AP_IG_PRESSURE'])
+   #minpressure = pressures.argmin()
     newData = list(zip(time, pressures))
     tempdfp = pd.DataFrame(data=newData, columns=['Time', 'Aprime ion gauge'])
     #Convert time data from epoch time to ISO format
@@ -77,27 +79,33 @@ matdfp.loc[matdfp['Aprime ion gauge'] > 0.0001, 'Aprime ion gauge'] = np.nan
 #%% Concatenate tdms and mat data
 dfp = pd.concat([dfpcsv, matdfp], ignore_index=True)
 
+#%% Redefine mat data as dfp
+dfp = matdfp
+
 #%%Convert IG data to log10
 for i in range(len(dfp['Aprime ion gauge'])):
-    dfp.iloc[i, 4] = np.log10(dfp.iloc[i, 4])
-
+    dfp.iloc[i, 1] = np.log10(dfp.iloc[i, 1])
+    
 #%% Plotting
 
 #Close all plots
 plt.close('all')
 
+fig, ax = plt.subplots()
 #Plot
-plt.scatter(dfp['Time'], dfp['Aprime ion gauge'], marker='.')
+plt.plot(dfp['Time'], dfp['Aprime ion gauge'], marker='.')
 
 #Set axis labels and legends
 fmt = mdates.DateFormatter('%m/%d/%Y')
 
-plt.gca().xaxis.set_major_formatter(fmt)
+ax.xaxis.set_major_formatter(fmt)
 #plt.gca().ticklabel_format(style='sci', scilimits=(0,0), axis='y')
-plt.xlabel('Dates')
-plt.ylabel('IG Pressure (log10(Torr))')
-plt.title('Ion gauge pressure by date')
-plt.gcf().autofmt_xdate()
+ax.set_xlabel('Dates')
+ax.set_ylabel('IG Pressure (log10(Torr))')
+ax.set_title('Ion gauge pressure by date')
+ax.axvspan(dfp.iloc[1,0],dfp.iloc[6,0], facecolor='r',alpha=0.1)
+fig.autofmt_xdate()
 
-plt.gcf().tight_layout()
+fig.tight_layout()
+
 plt.show()
